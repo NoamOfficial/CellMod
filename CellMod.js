@@ -1,116 +1,337 @@
-// ==========================================
-// UltimateCellMod.js - FULL READY HUMAN BODY SIMULATOR
-// Safe, self-contained, ready to host
-// ==========================================
+// =====================================================
+// ULTIMATE BIOLOGY v6 FINAL
+// Full infection + immune + medicine simulation
+// =====================================================
 
-if(!window.Elements) throw new Error("[UltimateCellMod] Sandboxels Elements object not found!");
+if (!window.elements) {
+console.log("Sandboxels not loaded");
+}
 
-(function(){
-    console.log("[UltimateCellMod] Initializing...");
+// =====================================================
+// CORE FLUIDS
+// =====================================================
 
-    // ---------- HELPERS ----------
-    function ensure(name,color="#bfbfbf",behavior=behaviors.POWDER,category="bio"){
-        if(!elements[name]) elements[name]={color,behavior,category,reactions:{}};
-    }
-    function spawnRand(e,count=1){for(let i=0;i<count;i++){spawnPixel(Math.floor(Math.random()*width),Math.floor(Math.random()*height),elements[e]);}}
+elements.blood = {
+color:"#b71c1c",
+behavior:behaviors.LIQUID,
+category:"biology"
+};
 
-    // ---------- METABOLITES ----------
-    const metabolites=["glucose","glucose_6_phosphate","fructose_6_phosphate","atp","nadh","fadh2","oxaloacetate","acetyl_coa","pyruvate","acetaldehyde","acetate","acetyl","propionyl_coa"];
-    metabolites.forEach(m=>ensure(m,"#ffb74d"));
+elements.lymph = {
+color:"#e6ee9c",
+behavior:behaviors.LIQUID,
+category:"biology"
+};
 
-    // Simplified reaction chain
-    elements.glucose.reactions["hexokinase"]={elem1:"glucose_6_phosphate",chance:1.0};
-    elements.glucose_6_phosphate.reactions["pfk1"]={elem1:"fructose_6_phosphate",chance:1.0};
-    elements.fructose_6_phosphate.reactions["pfk1"]={elem1:"fructose_6_phosphate",chance:1.0};
+// =====================================================
+// IMMUNE CELLS
+// =====================================================
 
-    // ---------- RNA & PROTEINS ----------
-    ["dna","rna_polymerase","mrna","ribosome","protein"].forEach(e=>ensure(e));
-    elements.dna.reactions["rna_polymerase"]={elem1:"mrna",chance:1.0};
-    elements.mrna.reactions["ribosome"]={elem1:"protein",chance:1.0};
+function immune(name,color){
 
-    // ---------- ORGANS ----------
-    const organs=["liver","kidney","heart","muscle","brain","pancreas"];
-    const organColors=["#ff7043","#42a5f5","#e53935","#7cb342","#ab47bc","#8d6e63"];
-    organs.forEach((o,i)=>ensure(o,organColors[i],behaviors.POWDER,"organs"));
+elements[name] = {
+color:color,
+behavior:behaviors.POWDER,
+category:"immune",
+reactions:{}
+};
 
-    elements.liver.reactions["epinephrine"]={elem1:"atp",elem2:"glucose",chance:0.8};
-    elements.muscle.reactions["insulin"]={elem1:"glucose_6_phosphate",chance:0.4};
-    elements.heart.reactions["norepinephrine"]={elem1:"atp",chance:0.5};
-    elements.brain.reactions["glucose"]={elem1:"atp",chance:1.0};
-    elements.kidney.reactions["ammonia"]={elem1:"urea",chance:1.0};
+}
 
-    // ---------- BLOOD & VESSELS ----------
-    ["blood","artery","vein"].forEach(e=>ensure(e));
-    const oldTick = window.tick;
-    tick = function(){
-        oldTick();
-        for(let x=0;x<width;x++){
-            for(let y=0;y<height;y++){
-                const p=pixel[x][y];
-                if(!p) continue;
-                if(p.element=="blood"){
-                    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{
-                        const nx=x+dx, ny=y+dy;
-                        if(nx<0||ny<0||nx>=width||ny>=height) return;
-                        const np=pixel[nx][ny];
-                        if(!np) return;
-                        if(np.element=="artery"||np.element=="vein") spawnPixel(nx,ny,elements.blood);
-                    });
-                    metabolites.concat(["insulin","glucagon","cortisol","epinephrine","norepinephrine"]).forEach(m=>{
-                        if(Math.random()<0.05) spawnPixel(x+1,y+1,elements[m]);
-                    });
-                }
-            }
-        }
-    };
+immune("macrophage","#ff9800");
+immune("neutrophil","#ffee58");
+immune("dendritic_cell","#8bc34a");
+immune("b_cell","#4caf50");
+immune("memory_b_cell","#1b5e20");
+immune("t_helper","#03a9f4");
+immune("cytotoxic_t","#1e88e5");
+immune("memory_t","#0d47a1");
+immune("nk_cell","#e91e63");
 
-    // ---------- IMMUNE SYSTEM ----------
-    ["white_blood_cell","antibody","virus","bacteria","fungus"].forEach(e=>ensure(e));
-    ["virus","bacteria","fungus"].forEach(i=>{
-        elements[i].reactions["blood"]={elem1:i,chance:0.2};
-        organs.forEach(o=>elements[o].reactions[i]={elem1:null,chance:0.05,effect:()=>{elements[o].color="#000000";console.log(o+" failed due to "+i);}});
-        elements[i].reactions["white_blood_cell"]={elem1:null,elem2:"antibody",chance:0.7};
-    });
+// =====================================================
+// IMMUNE MOLECULES
+// =====================================================
 
-    // ---------- TOXINS ----------
-    ensure("bongkrekic_acid","#6a1b9a",behaviors.LIQUID,"toxins");
-    elements.bongkrekic_acid.reactions["blood"]={elem1:null,chance:1.0,effect:()=>{
-        organs.forEach(o=>elements[o].color="#000000");
-        console.log("DEATH: Bongkrekic acid ingested!");
-    }};
+elements.antibody = {
+color:"#7e57c2",
+behavior:behaviors.LIQUID,
+category:"immune"
+};
 
-    // ---------- HORMONES ----------
-    ["insulin","glucagon","cortisol","epinephrine","norepinephrine"].forEach(e=>ensure(e));
-    elements.liver.reactions["epinephrine"]={elem1:"atp",elem2:"glucose",chance:0.8};
-    elements.muscle.reactions["insulin"]={elem1:"glucose_6_phosphate",chance:0.4};
+elements.cytokine = {
+color:"#26c6da",
+behavior:behaviors.GAS,
+category:"immune"
+};
 
-    // ---------- FEEDBACK LOOPS ----------
-    ensure("pancreas","#8d6e63");
-    const oldTick2 = tick;
-    tick = function(){
-        oldTick2();
+elements.interferon = {
+color:"#00acc1",
+behavior:behaviors.GAS,
+category:"immune"
+};
 
-        // Blood glucose
-        let glucoseCount=0;
-        for(let x=0;x<width;x++){for(let y=0;y<height;y++){const p=pixel[x][y];if(!p) continue;if(p.element=="glucose") glucoseCount++;}}
-        if(glucoseCount>50) spawnRand("insulin",3);
-        else if(glucoseCount<20) spawnRand("glucagon",3);
+// fever effect
+elements.cytokine.tick = function(pixel){
+if (Math.random() < 0.01) {
+pixel.temp += 2
+}
+}
 
-        // Cortisol if ATP low
-        let atpCount=0;
-        for(let x=0;x<width;x++){for(let y=0;y<height;y++){const p=pixel[x][y];if(!p) continue;if(p.element=="atp") atpCount++;}}
-        if(atpCount<30) spawnRand("cortisol",2);
+// =====================================================
+// BACTERIA
+// =====================================================
 
-        // Stress pulses
-        if(Math.random()<0.01) spawnRand("epinephrine");
-        spawnRand("norepinephrine");
+function bacteria(name,color){
 
-        // Hormone decay
-        ["insulin","glucagon","cortisol","epinephrine","norepinephrine"].forEach(h=>{
-            for(let x=0;x<width;x++){for(let y=0;y<height;y++){const p=pixel[x][y];if(!p) continue;if(p.element==h && Math.random()<0.02) pixel[x][y]=null;}}
-        });
-    };
+elements[name] = {
+color:color,
+behavior:behaviors.LIQUID,
+category:"bacteria"
+};
 
-    console.log("[UltimateCellMod] FULLY READY human body simulator loaded ✔");
-})();
+}
+
+bacteria("staphylococcus","#f44336")
+bacteria("mrsa","#c62828")
+bacteria("streptococcus","#ef5350")
+bacteria("e_coli","#ff7043")
+bacteria("pseudomonas","#00695c")
+bacteria("salmonella","#ff6f00")
+bacteria("tuberculosis","#bf360c")
+
+// mutation
+elements.e_coli.tick = function(pixel){
+if(Math.random()<0.0005){
+changePixel(pixel,"resistant_bacteria")
+}
+}
+
+elements.resistant_bacteria = {
+color:"#5d4037",
+behavior:behaviors.LIQUID,
+category:"bacteria"
+}
+
+// =====================================================
+// BIOFILM
+// =====================================================
+
+elements.biofilm = {
+color:"#795548",
+behavior:behaviors.WALL,
+category:"bacteria"
+}
+
+elements.pseudomonas.reactions.pseudomonas = {
+elem1:"biofilm",
+chance:0.05
+}
+
+// =====================================================
+// FUNGI
+// =====================================================
+
+function fungus(name,color){
+
+elements[name] = {
+color:color,
+behavior:behaviors.POWDER,
+category:"fungi"
+};
+
+}
+
+fungus("candida","#eeeeee")
+fungus("aspergillus","#9ccc65")
+fungus("candida_auris","#cfd8dc")
+
+// =====================================================
+// VIRUSES
+// =====================================================
+
+function virus(name,color){
+
+elements[name] = {
+color:color,
+behavior:behaviors.GAS,
+category:"virus"
+};
+
+}
+
+virus("influenza","#7b1fa2")
+virus("coronavirus","#8e24aa")
+virus("hiv","#4a148c")
+virus("ebola","#311b92")
+virus("rabies","#6a1b9a")
+
+// =====================================================
+// PARASITES
+// =====================================================
+
+elements.malaria = {
+color:"#d4e157",
+behavior:behaviors.LIQUID,
+category:"parasite"
+}
+
+// =====================================================
+// SEPSIS
+// =====================================================
+
+elements.sepsis = {
+color:"#4e342e",
+behavior:behaviors.GAS,
+category:"disease"
+}
+
+elements.blood.reactions.salmonella = {
+elem1:"sepsis",
+chance:0.05
+}
+
+elements.blood.reactions.e_coli = {
+elem1:"sepsis",
+chance:0.05
+}
+
+// =====================================================
+// ANTIBIOTICS
+// =====================================================
+
+function antibiotic(name,color){
+
+elements[name] = {
+color:color,
+behavior:behaviors.LIQUID,
+category:"antibiotic",
+reactions:{}
+};
+
+}
+
+antibiotic("penicillin","#2196f3")
+antibiotic("amoxicillin","#42a5f5")
+antibiotic("vancomycin","#5c6bc0")
+antibiotic("ciprofloxacin","#26c6da")
+antibiotic("azithromycin","#00acc1")
+antibiotic("rifampicin","#ef6c00")
+
+// targets
+
+elements.penicillin.reactions.streptococcus = {elem2:null}
+elements.penicillin.reactions.staphylococcus = {elem2:null}
+
+elements.amoxicillin.reactions.e_coli = {elem2:null}
+
+elements.vancomycin.reactions.mrsa = {elem2:null}
+
+elements.ciprofloxacin.reactions.pseudomonas = {elem2:null}
+elements.ciprofloxacin.reactions.salmonella = {elem2:null}
+
+elements.rifampicin.reactions.tuberculosis = {elem2:null}
+
+// =====================================================
+// ANTIFUNGALS
+// =====================================================
+
+elements.fluconazole = {
+color:"#66bb6a",
+behavior:behaviors.LIQUID,
+category:"antifungal"
+}
+
+elements.amphotericin_b = {
+color:"#2e7d32",
+behavior:behaviors.LIQUID,
+category:"antifungal"
+}
+
+elements.fluconazole.reactions.candida = {elem2:null}
+elements.amphotericin_b.reactions.aspergillus = {elem2:null}
+
+// =====================================================
+// ANTIVIRALS
+// =====================================================
+
+elements.oseltamivir = {
+color:"#26c6da",
+behavior:behaviors.LIQUID,
+category:"antiviral"
+}
+
+elements.remdesivir = {
+color:"#00acc1",
+behavior:behaviors.LIQUID,
+category:"antiviral"
+}
+
+elements.oseltamivir.reactions.influenza = {elem2:null}
+elements.remdesivir.reactions.coronavirus = {elem2:null}
+
+// =====================================================
+// IMMUNE ATTACKS
+// =====================================================
+
+elements.macrophage.reactions.e_coli = {elem2:null}
+elements.macrophage.reactions.salmonella = {elem2:null}
+
+elements.neutrophil.reactions.staphylococcus = {elem2:null}
+
+elements.nk_cell.reactions.influenza = {elem2:null}
+
+elements.cytotoxic_t.reactions.coronavirus = {elem2:null}
+
+// =====================================================
+// ADAPTIVE IMMUNITY
+// =====================================================
+
+elements.b_cell.reactions.influenza = {
+elem1:"memory_b_cell",
+chance:0.6
+}
+
+elements.memory_b_cell.reactions.influenza = {
+elem1:"antibody",
+chance:1
+}
+
+// =====================================================
+// BLOOD SPAWNS IMMUNE CELLS
+// =====================================================
+
+const oldTick = tick
+
+tick = function(){
+
+oldTick()
+
+for (let x=0;x<width;x++){
+for (let y=0;y<height;y++){
+
+let p = pixelMap[x][y]
+if (!p) continue
+
+if(p.element === "blood"){
+
+if(Math.random()<0.002)
+createPixel("neutrophil",x,y)
+
+if(Math.random()<0.002)
+createPixel("macrophage",x,y)
+
+if(Math.random()<0.001)
+createPixel("b_cell",x,y)
+
+if(Math.random()<0.001)
+createPixel("t_helper",x,y)
+
+}
+
+}
+}
+
+}
+
+console.log("Ultimate Biology v6 FINAL loaded")
 
